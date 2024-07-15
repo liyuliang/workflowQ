@@ -144,9 +144,12 @@ func (q *Queue) exec(ctx context.Context) error {
 		return err
 	}
 
-	q.status.Store(k, StatusFinished)
 	q.m.Store(k, result)
 	return nil
+}
+
+func (q *Queue) SetDone(k string) {
+	q.status.Store(k, StatusFinished)
 }
 
 func (q *Queue) pushErrCh(err error) {
