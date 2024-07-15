@@ -49,6 +49,9 @@ func main() {
 
 	go func() {
 		if err := q.Push("a:Flow"); err != nil {
+			q.Remove("a:Flow", func(key string) {
+				println(key, "is removed")
+			})
 			println(err.Error())
 		}
 	}()
@@ -59,6 +62,9 @@ func main() {
 	}()
 	go func() {
 		if err := q.Push("b:Flow"); err != nil {
+			q.Remove("b:Flow", func(key string) {
+				println(key, "is removed")
+			})
 			println(err.Error())
 		}
 	}()

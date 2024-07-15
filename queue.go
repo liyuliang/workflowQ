@@ -12,6 +12,7 @@ const (
 	StatusRunning  = "RUNNING"
 	StatusError    = "ERROR"
 	StatusFinished = "FINISHED"
+	StatusDeleted  = "DELETED"
 )
 
 func NewQueue(cap int, errCap int) *Queue {
@@ -57,7 +58,7 @@ func (q *Queue) Push(key string) error {
 	if v, ok := q.status.LoadOrStore(key, StatusInit); ok {
 		if status, _ := v.(string); status == StatusInit || status == StatusRunning {
 			return errors.New("key is existed: " + key)
-		} else if status == StatusError || status == StatusFinished {
+		} else /*if status == StatusError || status == StatusFinished || status== StatusDeleted*/ {
 			q.m.Delete(key)
 		}
 	}
@@ -128,6 +129,12 @@ func (q *Queue) exec(ctx context.Context) error {
 		return errors.New("queue is empty")
 	}
 
+	if v, ok := q.status.LoadOrStore(k, StatusRunning); ok {
+		if status, _ := v.(string); status == StatusDeleted {
+			return errors.New("task is deleted:" + k)
+		}
+	}
+
 	q.status.Store(k, StatusRunning)
 
 	result, err := q.fn(ctx, k)
@@ -166,6 +173,20 @@ func (q *Queue) ExecResult(k string) string {
 	return ""
 }
 
+func (q *Queue) IsRunning(k string) bool {
+	val, _ := q.status.Load(k)
+	if status, ok := val.(string); ok && (status == StatusInit || status == StatusRunning) {
+		return true
+	}
+	return false
+}
+
+func (q *Queue) Remove(k string, callback RemoveCallbackFn) {
+	// 设置状态为删除
+	q.status.Store(k, StatusDeleted)
+	callback(k)
+}
+
 func (q *Queue) closeCh() {
 	q.once.Do(func() {
 		close(q.q)
@@ -181,6 +202,8 @@ func (q *Queue) Close() {
 type ExecFn func(ctx context.Context, key string) (string, error)
 
 type EmptyQueueFn func()
+
+type RemoveCallbackFn func(key string)
 
 func SetConcurrency(c int) QueueOption {
 	if c < 1 {
@@ -209,12 +232,4 @@ func (q *Queue) SetExecFn(fn ExecFn, force bool) {
 	if force || q.fn == nil {
 		q.fn = fn
 	}
-}
-
-func (q *Queue) IsRunning(k string) bool {
-	val, _ := q.status.Load(k)
-	if status, ok := val.(string); ok && (status == StatusInit || status == StatusRunning) {
-		return true
-	}
-	return false
 }
