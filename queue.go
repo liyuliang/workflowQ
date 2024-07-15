@@ -61,6 +61,7 @@ func (q *Queue) Push(key string) error {
 		if status, _ := v.(string); status == StatusInit || status == StatusRunning {
 			return errors.New("key is existed: " + key)
 		} else /*if status == StatusError || status == StatusFinished || status== StatusDeleted*/ {
+			q.status.Store(key, StatusInit)
 			q.m.Delete(key)
 		}
 	}
@@ -144,13 +145,10 @@ func (q *Queue) exec(ctx context.Context) error {
 		q.status.Store(k, StatusError)
 		return err
 	}
+	q.status.Store(k, StatusFinished)
 
 	q.m.Store(k, result)
 	return nil
-}
-
-func (q *Queue) SetDone(k string) {
-	q.status.Store(k, StatusFinished)
 }
 
 func (q *Queue) pushErrCh(err error) {
