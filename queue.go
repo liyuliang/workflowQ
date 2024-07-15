@@ -181,10 +181,10 @@ func (q *Queue) IsRunning(k string) bool {
 	return false
 }
 
-func (q *Queue) Remove(k string, callback RemoveCallbackFn) {
+func (q *Queue) Remove(k string, callback RemoveCallbackFn) error {
 	// 设置状态为删除
 	q.status.Store(k, StatusDeleted)
-	callback(k)
+	return callback(k)
 }
 
 func (q *Queue) closeCh() {
@@ -203,7 +203,7 @@ type ExecFn func(ctx context.Context, key string) (string, error)
 
 type EmptyQueueFn func()
 
-type RemoveCallbackFn func(key string)
+type RemoveCallbackFn func(key string) error
 
 func SetConcurrency(c int) QueueOption {
 	if c < 1 {
