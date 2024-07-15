@@ -140,7 +140,7 @@ func (q *Queue) exec(ctx context.Context) error {
 
 	q.status.Store(k, StatusRunning)
 
-	result, err := q.fn(ctx, k, q.waitResultTimeout*time.Second)
+	result, err := q.fn(ctx, k, q.waitResultTimeout)
 	if err != nil {
 		q.status.Store(k, StatusError)
 		return err
