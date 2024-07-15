@@ -29,7 +29,7 @@ func main() {
 
 	q := workflowQ.NewQueue(3, 10)
 	q.SetOptions(workflowQ.SetConcurrency(2))
-	q.SetOptions(workflowQ.SetWaitFn(func() {
+	q.SetOptions(workflowQ.SetEmptyQueueWaitFn(func() {
 		time.Sleep(time.Second * 1)
 	}))
 	q.SetExecFn(fn, true)

@@ -25,27 +25,28 @@ func NewQueue(cap int, errCap int) *Queue {
 		errCap = 1
 	}
 	return &Queue{
-		concur: 1,
-		status: &sync.Map{},
-		m:      &sync.Map{},
-		q:      make(chan string, cap),
-		errCh:  make(chan error, errCap),
-		once:   sync.Once{},
-		close:  make(chan struct{}),
+		concur:            1,
+		status:            &sync.Map{},
+		m:                 &sync.Map{},
+		q:                 make(chan string, cap),
+		errCh:             make(chan error, errCap),
+		once:              sync.Once{},
+		close:             make(chan struct{}),
+		waitResultTimeout: time.Second * 10,
 	}
 }
 
 type Queue struct {
-	concur int
-	status *sync.Map
-	m      *sync.Map
-	q      chan string
-	errCh  chan error
-	once   sync.Once
-	close  chan struct{}
-
-	fn           ExecFn
-	emptyQueueFn EmptyQueueFn
+	concur            int
+	status            *sync.Map
+	m                 *sync.Map
+	q                 chan string
+	errCh             chan error
+	once              sync.Once
+	close             chan struct{}
+	waitResultTimeout time.Duration
+	fn                ExecFn
+	emptyQueueFn      EmptyQueueFn
 }
 
 func (q *Queue) Push(key string) error {
@@ -138,7 +139,7 @@ func (q *Queue) exec(ctx context.Context) error {
 
 	q.status.Store(k, StatusRunning)
 
-	result, err := q.fn(ctx, k)
+	result, err := q.fn(ctx, k, q.waitResultTimeout*time.Second)
 	if err != nil {
 		q.status.Store(k, StatusError)
 		return err
@@ -203,7 +204,7 @@ func (q *Queue) Close() {
 	q.close <- struct{}{}
 }
 
-type ExecFn func(ctx context.Context, key string) (string, error)
+type ExecFn func(ctx context.Context, key string, timeout time.Duration) (string, error)
 
 type EmptyQueueFn func()
 
@@ -218,9 +219,15 @@ func SetConcurrency(c int) QueueOption {
 	}
 }
 
-func SetWaitFn(fn EmptyQueueFn) QueueOption {
+func SetEmptyQueueWaitFn(fn EmptyQueueFn) QueueOption {
 	return func(q *Queue) {
 		q.emptyQueueFn = fn
+	}
+}
+
+func SetWaitResultTimeout(timeout time.Duration) QueueOption {
+	return func(q *Queue) {
+		q.waitResultTimeout = timeout
 	}
 }
 
