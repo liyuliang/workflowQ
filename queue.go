@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 )
 
 const (
@@ -85,7 +86,7 @@ func (q *Queue) Run(ctx context.Context) {
 		default:
 
 			if len(q.q) == 0 {
-				q.emptyQueueFn()
+				q.runEmptyQueueFn()
 				continue
 			}
 
@@ -232,4 +233,13 @@ func (q *Queue) SetExecFn(fn ExecFn, force bool) {
 	if force || q.fn == nil {
 		q.fn = fn
 	}
+}
+
+func (q *Queue) runEmptyQueueFn() {
+	if q.emptyQueueFn == nil {
+		q.emptyQueueFn = func() {
+			time.Sleep(time.Second)
+		}
+	}
+	q.emptyQueueFn()
 }
