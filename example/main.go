@@ -10,7 +10,7 @@ import (
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	fn := func(ctx context.Context, flowName string) (string, error) {
+	fn := func(ctx context.Context, flowName string, timeout time.Duration) (string, error) {
 		select {
 		case <-ctx.Done():
 			return "", ctx.Err()
@@ -49,9 +49,13 @@ func main() {
 
 	go func() {
 		if err := q.Push("a:Flow"); err != nil {
-			q.Remove("a:Flow", func(key string) {
+			err = q.Remove("a:Flow", func(key string) error {
 				println(key, "is removed")
+				return nil
 			})
+			if err != nil {
+				return
+			}
 			println(err.Error())
 		}
 	}()
@@ -62,9 +66,13 @@ func main() {
 	}()
 	go func() {
 		if err := q.Push("b:Flow"); err != nil {
-			q.Remove("b:Flow", func(key string) {
+			err = q.Remove("b:Flow", func(key string) error {
 				println(key, "is removed")
+				return nil
 			})
+			if err != nil {
+				return
+			}
 			println(err.Error())
 		}
 	}()
