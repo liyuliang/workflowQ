@@ -155,7 +155,7 @@ func (q *Queue) pushErrCh(err error) {
 	if q.errCh == nil {
 		return
 	}
-	if len(q.errCh) == cap(q.errCh) {
+	for len(q.errCh) == cap(q.errCh) {
 		<-q.errCh
 	}
 	q.errCh <- err
