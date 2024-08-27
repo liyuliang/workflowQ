@@ -10,7 +10,7 @@ import (
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	fn := func(ctx context.Context, flowName string, timeout time.Duration) (string, error) {
+	fn := func(ctx context.Context, flowName string) (string, error) {
 		select {
 		case <-ctx.Done():
 			return "", ctx.Err()
@@ -32,9 +32,8 @@ func main() {
 	q.SetOptions(workflowQ.SetEmptyQueueWaitFn(func() {
 		time.Sleep(time.Second * 1)
 	}))
-	q.SetExecFn(fn, true)
 
-	go q.Run(ctx)
+	go q.Run(ctx, fn, nil)
 
 	go func() {
 		if err := q.Push("a:Flow"); err != nil {

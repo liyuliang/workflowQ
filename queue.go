@@ -9,11 +9,12 @@ import (
 )
 
 const (
-	StatusInit     = "INIT"
-	StatusRunning  = "RUNNING"
-	StatusError    = "ERROR"
-	StatusFinished = "FINISHED"
-	StatusDeleted  = "DELETED"
+	StatusInit        = "INIT"
+	StatusRunning     = "RUNNING"
+	StatusError       = "ERROR"
+	StatusErrorResult = "ERROR_RESULT"
+	StatusFinished    = "FINISHED"
+	StatusDeleted     = "DELETED"
 )
 
 func NewQueue(cap int, errCap int) *Queue {
@@ -45,7 +46,6 @@ type Queue struct {
 	once              sync.Once
 	close             chan struct{}
 	waitResultTimeout time.Duration
-	fn                ExecFn
 	emptyQueueFn      EmptyQueueFn
 }
 
@@ -69,7 +69,7 @@ func (q *Queue) Push(key string) error {
 	return nil
 }
 
-func (q *Queue) Run(ctx context.Context) {
+func (q *Queue) Run(ctx context.Context, fn ExecFn, resultFn ResultFn) {
 	var exit bool
 	defer q.closeCh()
 
@@ -109,7 +109,7 @@ func (q *Queue) Run(ctx context.Context) {
 				go func() {
 					defer wg.Done()
 
-					if err := q.exec(ctx); err != nil {
+					if err := q.exec(ctx, fn, resultFn); err != nil {
 						q.pushErrCh(err)
 					}
 				}()
@@ -119,7 +119,10 @@ func (q *Queue) Run(ctx context.Context) {
 	}
 }
 
-func (q *Queue) exec(ctx context.Context) error {
+func (q *Queue) exec(ctx context.Context, fn ExecFn, resultFn ResultFn) error {
+	if fn == nil {
+		return errors.New("fn is nil")
+	}
 	if len(q.q) == 0 {
 		return errors.New("queue is empty")
 	}
@@ -140,14 +143,21 @@ func (q *Queue) exec(ctx context.Context) error {
 
 	q.status.Store(k, StatusRunning)
 
-	result, err := q.fn(ctx, k, q.waitResultTimeout)
+	result, err := fn(ctx, k)
 	if err != nil {
 		q.status.Store(k, StatusError)
 		return err
 	}
-	q.status.Store(k, StatusFinished)
-
 	q.m.Store(k, result)
+
+	if resultFn != nil {
+		err = resultFn(ctx, result, q.waitResultTimeout)
+		if err != nil {
+			q.status.Store(k, StatusErrorResult)
+			return err
+		}
+	}
+	q.status.Store(k, StatusFinished)
 	return nil
 }
 
@@ -202,7 +212,8 @@ func (q *Queue) Close() {
 	q.close <- struct{}{}
 }
 
-type ExecFn func(ctx context.Context, key string, timeout time.Duration) (string, error)
+type ExecFn func(ctx context.Context, key string) (string, error)
+type ResultFn func(ctx context.Context, result string, timeout time.Duration) error
 
 type EmptyQueueFn func()
 
@@ -234,12 +245,6 @@ type QueueOption func(*Queue)
 func (q *Queue) SetOptions(opts ...QueueOption) {
 	for _, opt := range opts {
 		opt(q)
-	}
-}
-
-func (q *Queue) SetExecFn(fn ExecFn, force bool) {
-	if force || q.fn == nil {
-		q.fn = fn
 	}
 }
 
