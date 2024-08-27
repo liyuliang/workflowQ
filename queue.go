@@ -151,7 +151,7 @@ func (q *Queue) exec(ctx context.Context, fn ExecFn) error {
 	q.m.Store(k, result)
 
 	if fn.Result != nil {
-		err = fn.Result(ctx, result, q.waitResultTimeout)
+		err = fn.Result(ctx, k, result, q.waitResultTimeout)
 		if err != nil {
 			q.status.Store(k, StatusErrorResult)
 			return err

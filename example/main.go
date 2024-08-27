@@ -23,8 +23,8 @@ func (fn QueueExec) Run(ctx context.Context, flowName string) (string, error) {
 	}
 }
 
-func (fn QueueExec) Result(ctx context.Context, result string, timeout time.Duration) error {
-	println(result)
+func (fn QueueExec) Result(ctx context.Context, key, result string, timeout time.Duration) error {
+	println(key, ":", result)
 	return nil
 }
 
