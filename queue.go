@@ -69,7 +69,7 @@ func (q *Queue) Push(key string) error {
 	return nil
 }
 
-func (q *Queue) Run(ctx context.Context, fn ExecFn, resultFn ResultFn) {
+func (q *Queue) Run(ctx context.Context, fn ExecFn) {
 	var exit bool
 	defer q.closeCh()
 
@@ -109,7 +109,7 @@ func (q *Queue) Run(ctx context.Context, fn ExecFn, resultFn ResultFn) {
 				go func() {
 					defer wg.Done()
 
-					if err := q.exec(ctx, fn, resultFn); err != nil {
+					if err := q.exec(ctx, fn); err != nil {
 						q.pushErrCh(err)
 					}
 				}()
@@ -119,7 +119,7 @@ func (q *Queue) Run(ctx context.Context, fn ExecFn, resultFn ResultFn) {
 	}
 }
 
-func (q *Queue) exec(ctx context.Context, fn ExecFn, resultFn ResultFn) error {
+func (q *Queue) exec(ctx context.Context, fn ExecFn) error {
 	if fn == nil {
 		return errors.New("fn is nil")
 	}
@@ -143,15 +143,15 @@ func (q *Queue) exec(ctx context.Context, fn ExecFn, resultFn ResultFn) error {
 
 	q.status.Store(k, StatusRunning)
 
-	result, err := fn(ctx, k)
+	result, err := fn.Run(ctx, k)
 	if err != nil {
 		q.status.Store(k, StatusError)
 		return err
 	}
 	q.m.Store(k, result)
 
-	if resultFn != nil {
-		err = resultFn(ctx, result, q.waitResultTimeout)
+	if fn.Result != nil {
+		err = fn.Result(ctx, result, q.waitResultTimeout)
 		if err != nil {
 			q.status.Store(k, StatusErrorResult)
 			return err
@@ -212,13 +212,6 @@ func (q *Queue) Close() {
 	q.close <- struct{}{}
 }
 
-type ExecFn func(ctx context.Context, key string) (string, error)
-type ResultFn func(ctx context.Context, result string, timeout time.Duration) error
-
-type EmptyQueueFn func()
-
-type RemoveCallbackFn func(key string) error
-
 func SetConcurrency(c int) QueueOption {
 	if c < 1 {
 		c = 1
@@ -238,21 +231,4 @@ func SetWaitResultTimeout(timeout time.Duration) QueueOption {
 	return func(q *Queue) {
 		q.waitResultTimeout = timeout
 	}
-}
-
-type QueueOption func(*Queue)
-
-func (q *Queue) SetOptions(opts ...QueueOption) {
-	for _, opt := range opts {
-		opt(q)
-	}
-}
-
-func (q *Queue) runEmptyQueueFn() {
-	if q.emptyQueueFn == nil {
-		q.emptyQueueFn = func() {
-			time.Sleep(time.Second)
-		}
-	}
-	q.emptyQueueFn()
 }
