@@ -23,8 +23,34 @@ func (fn QueueExec) Run(ctx context.Context, flowName string) (string, error) {
 	}
 }
 
-func (fn QueueExec) Result(ctx context.Context, key, result string, timeout time.Duration) error {
+func (fn QueueExec) Result(ctx context.Context, key, result string, timeOpts workflowQ.TimeOptions) error {
+
+	//	timeout, frequency := timeOpts()
+	//
+	//	checker := time.NewTicker(frequency)
+	//	defer checker.Stop()
+	//
+	//	ender := time.NewTimer(timeout)
+	//	defer ender.Stop()
+	//
+	//	// 等执行完
+	//WaitLoop:
+	//	for {
+	//		select {
+	//		case <-ctx.Done():
+	//			break WaitLoop
+	//
+	//		case <-ender.C:
+	//			fmt.Printf("exec timeout\n")
+	//			break WaitLoop
+	//
+	//		case <-checker.C:
+	//			// 每5秒检测一次结果
+	//			fmt.Printf("exec check...\n")
+	//		}
+	//	}
 	println(key, ":", result)
+
 	return nil
 }
 
@@ -38,6 +64,7 @@ func main() {
 	q.SetOptions(workflowQ.SetEmptyQueueWaitFn(func() {
 		time.Sleep(time.Second * 1)
 	}))
+	q.SetOptions(workflowQ.SetTimeOptions(time.Second*5, time.Second*2))
 
 	go q.Run(ctx, exec)
 
@@ -58,16 +85,16 @@ func main() {
 			println(err.Error())
 		}
 	}()
-
+	//
+	//go func() {
+	//	time.Sleep(3 * time.Second)
+	//	q.Close()
+	//}()
 	go func() {
-		time.Sleep(3 * time.Second)
-		q.Close()
-	}()
-	go func() {
-		time.Sleep(3 * time.Second)
+		time.Sleep(20 * time.Second)
 		cancel()
 	}()
-	time.Sleep(10 * time.Second)
+	time.Sleep(20 * time.Second)
 	println()
 	println()
 	println("time end")

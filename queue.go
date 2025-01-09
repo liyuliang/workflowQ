@@ -26,27 +26,29 @@ func NewQueue(cap int, errCap int) *Queue {
 		errCap = 1
 	}
 	return &Queue{
-		concur:            1,
-		status:            &sync.Map{},
-		m:                 &sync.Map{},
-		q:                 make(chan string, cap),
-		errCh:             make(chan error, errCap),
-		once:              sync.Once{},
-		close:             make(chan struct{}),
-		waitResultTimeout: time.Second * 10,
+		concur: 1,
+		status: &sync.Map{},
+		m:      &sync.Map{},
+		q:      make(chan string, cap),
+		errCh:  make(chan error, errCap),
+		once:   sync.Once{},
+		close:  make(chan struct{}),
+		timeOpts: func() (timeoutSec time.Duration, frequencySec time.Duration) {
+			return time.Second * 10, time.Second * 3
+		},
 	}
 }
 
 type Queue struct {
-	concur            int
-	status            *sync.Map
-	m                 *sync.Map
-	q                 chan string
-	errCh             chan error
-	once              sync.Once
-	close             chan struct{}
-	waitResultTimeout time.Duration
-	emptyQueueFn      EmptyQueueFn
+	concur       int
+	status       *sync.Map
+	m            *sync.Map
+	q            chan string
+	errCh        chan error
+	once         sync.Once
+	close        chan struct{}
+	timeOpts     TimeOptions
+	emptyQueueFn EmptyQueueFn
 }
 
 func (q *Queue) Push(key string) error {
@@ -77,11 +79,11 @@ func (q *Queue) Run(ctx context.Context, fn ExecFn) {
 
 		select {
 		case <-q.close:
-			fmt.Printf("%v \n", "主动退出")
+			fmt.Printf("%v \n", "exit voluntarily")
 			exit = true
 			return
 		case <-ctx.Done():
-			fmt.Printf("%v \n", "超时退出")
+			fmt.Printf("%v \n", "exit on timeout")
 			exit = true
 			return
 
@@ -151,7 +153,7 @@ func (q *Queue) exec(ctx context.Context, fn ExecFn) error {
 	q.m.Store(k, result)
 
 	if fn.Result != nil {
-		err = fn.Result(ctx, k, result, q.waitResultTimeout)
+		err = fn.Result(ctx, k, result, q.timeOpts)
 		if err != nil {
 			q.status.Store(k, StatusErrorResult)
 			return err
@@ -195,7 +197,6 @@ func (q *Queue) IsRunning(k string) bool {
 }
 
 func (q *Queue) Remove(k string, callback RemoveCallbackFn) error {
-	// 设置状态为删除
 	q.status.Store(k, StatusDeleted)
 	return callback(k)
 }
@@ -227,8 +228,10 @@ func SetEmptyQueueWaitFn(fn EmptyQueueFn) QueueOption {
 	}
 }
 
-func SetWaitResultTimeout(timeout time.Duration) QueueOption {
+func SetTimeOptions(timeoutSeconds time.Duration, checkFrequencySeconds time.Duration) QueueOption {
 	return func(q *Queue) {
-		q.waitResultTimeout = timeout
+		q.timeOpts = func() (timeoutSec time.Duration, frequencySec time.Duration) {
+			return timeoutSeconds, checkFrequencySeconds
+		}
 	}
 }
