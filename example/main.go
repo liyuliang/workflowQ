@@ -23,7 +23,7 @@ func (fn QueueExec) Run(ctx context.Context, flowName string) (string, error) {
 	}
 }
 
-func (fn QueueExec) Result(ctx context.Context, key, result string, timeOpts workflowQ.TimeOptions) error {
+func (fn QueueExec) Result(ctx context.Context, key, result string, timeout time.Duration, frequency time.Duration) error {
 
 	//	timeout, frequency := timeOpts()
 	//
@@ -64,7 +64,8 @@ func main() {
 	q.SetOptions(workflowQ.SetEmptyQueueWaitFn(func() {
 		time.Sleep(time.Second * 1)
 	}))
-	q.SetOptions(workflowQ.SetTimeOptions(time.Second*5, time.Second*2))
+	q.SetOptions(workflowQ.SetDefaultTimeout(time.Second * 5))
+	q.SetOptions(workflowQ.SetDefaultCheckFrequency(time.Second * 2))
 
 	go q.Run(ctx, exec)
 
@@ -110,3 +111,4 @@ func main() {
 	println(q.ExecResult("c:Flow"))
 
 }
+
