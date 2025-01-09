@@ -23,7 +23,7 @@ func (fn QueueExec) Run(ctx context.Context, flowName string) (string, error) {
 	}
 }
 
-func (fn QueueExec) Result(ctx context.Context, key, result string, timeout time.Duration, frequency time.Duration) error {
+func (fn QueueExec) Result(ctx context.Context, key, result string, timeout time.Duration, frequency time.Duration) ([]byte, error) {
 
 	//	timeout, frequency := timeOpts()
 	//
@@ -51,7 +51,7 @@ func (fn QueueExec) Result(ctx context.Context, key, result string, timeout time
 	//	}
 	println(key, ":", result)
 
-	return nil
+	return nil, nil
 }
 
 func main() {
