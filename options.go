@@ -1,5 +1,7 @@
 package workflowQ
 
+import "time"
+
 type QueueOption func(*Queue)
 
 func (q *Queue) SetOptions(opts ...QueueOption) {
@@ -15,3 +17,4 @@ func (q *Queue) runEmptyQueueFn() {
 	q.emptyQueueFn()
 }
 
+type TimeOptions func() (timeoutSec time.Duration, frequencySec time.Duration)
