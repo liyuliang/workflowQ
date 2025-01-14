@@ -9,7 +9,7 @@ import (
 type QueueExec struct {
 }
 
-func (fn QueueExec) Run(ctx context.Context, flowName string) (string, error) {
+func (fn QueueExec) Run(ctx context.Context, flowName string, data map[string]interface{}) (string, error) {
 	select {
 	case <-ctx.Done():
 		return "", ctx.Err()
@@ -23,7 +23,7 @@ func (fn QueueExec) Run(ctx context.Context, flowName string) (string, error) {
 	}
 }
 
-func (fn QueueExec) Result(ctx context.Context, key, result string, timeout time.Duration, frequency time.Duration) ([]byte, error) {
+func (fn QueueExec) Result(ctx context.Context, key, result string, timeOpts workflowQ.TimeOptions) error {
 
 	//	timeout, frequency := timeOpts()
 	//
@@ -51,7 +51,7 @@ func (fn QueueExec) Result(ctx context.Context, key, result string, timeout time
 	//	}
 	println(key, ":", result)
 
-	return nil, nil
+	return nil
 }
 
 func main() {
@@ -64,8 +64,7 @@ func main() {
 	q.SetOptions(workflowQ.SetEmptyQueueWaitFn(func() {
 		time.Sleep(time.Second * 1)
 	}))
-	q.SetOptions(workflowQ.SetDefaultTimeout(time.Second * 5))
-	q.SetOptions(workflowQ.SetDefaultCheckFrequency(time.Second * 2))
+	q.SetOptions(workflowQ.SetTimeOptions(time.Second*5, time.Second*2))
 
 	go q.Run(ctx, exec)
 

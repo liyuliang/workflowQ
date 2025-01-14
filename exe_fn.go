@@ -6,8 +6,8 @@ import (
 )
 
 type ExecFn interface {
-	Run(ctx context.Context, key string) (execId string, err error)
-	Result(ctx context.Context, key, result string, timeout time.Duration, frequency time.Duration) ([]byte, error)
+	Run(ctx context.Context, key string, data map[string]interface{}) (string, error)
+	Result(ctx context.Context, key, result string, timeOpts TimeOptions) error
 }
 
 var defaultSleepFn = func() {

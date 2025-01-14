@@ -16,32 +16,26 @@ const (
 	StatusFinished    = "FINISHED"
 	StatusDeleted     = "DELETED"
 )
-const (
-	defaultConcurrency  = 1
-	defaultQueueCapture = 10
-	defaultErrorCapture = 1
-	defaultTimeout      = time.Second * 10
-	defaultFrequency    = time.Second * 3
-)
 
 func NewQueue(cap int, errCap int) *Queue {
 	if cap < 10 {
-		cap = defaultQueueCapture
+		cap = 10
 	}
 
 	if errCap < 1 {
-		errCap = defaultErrorCapture
+		errCap = 1
 	}
 	return &Queue{
-		concur:    defaultConcurrency,
-		status:    &sync.Map{},
-		m:         &sync.Map{},
-		q:         make(chan string, cap),
-		errCh:     make(chan error, errCap),
-		once:      sync.Once{},
-		close:     make(chan struct{}),
-		timeout:   defaultTimeout,
-		frequency: defaultFrequency,
+		concur: 1,
+		status: &sync.Map{},
+		m:      &sync.Map{},
+		q:      make(chan string, cap),
+		errCh:  make(chan error, errCap),
+		once:   sync.Once{},
+		close:  make(chan struct{}),
+		timeOpts: func() (timeoutSec time.Duration, frequencySec time.Duration) {
+			return time.Second * 10, time.Second * 3
+		},
 	}
 }
 
@@ -53,9 +47,8 @@ type Queue struct {
 	errCh        chan error
 	once         sync.Once
 	close        chan struct{}
+	timeOpts     TimeOptions
 	emptyQueueFn EmptyQueueFn
-	timeout      time.Duration
-	frequency    time.Duration
 }
 
 func (q *Queue) Push(key string) error {
@@ -152,7 +145,7 @@ func (q *Queue) exec(ctx context.Context, fn ExecFn) error {
 
 	q.status.Store(k, StatusRunning)
 
-	result, err := fn.Run(ctx, k)
+	result, err := fn.Run(ctx, k, nil)
 	if err != nil {
 		q.status.Store(k, StatusError)
 		return err
@@ -160,7 +153,7 @@ func (q *Queue) exec(ctx context.Context, fn ExecFn) error {
 	q.m.Store(k, result)
 
 	if fn.Result != nil {
-		_, err = fn.Result(ctx, k, result, q.timeout, q.frequency)
+		err = fn.Result(ctx, k, result, q.timeOpts)
 		if err != nil {
 			q.status.Store(k, StatusErrorResult)
 			return err
@@ -235,14 +228,11 @@ func SetEmptyQueueWaitFn(fn EmptyQueueFn) QueueOption {
 	}
 }
 
-func SetDefaultTimeout(t time.Duration) QueueOption {
+func SetTimeOptions(timeoutSeconds time.Duration, checkFrequencySeconds time.Duration) QueueOption {
 	return func(q *Queue) {
-		q.timeout = t
-	}
-}
-func SetDefaultCheckFrequency(t time.Duration) QueueOption {
-	return func(q *Queue) {
-		q.frequency = t
+		q.timeOpts = func() (timeoutSec time.Duration, frequencySec time.Duration) {
+			return timeoutSeconds, checkFrequencySeconds
+		}
 	}
 }
 
