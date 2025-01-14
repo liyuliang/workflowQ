@@ -7,7 +7,7 @@ import (
 
 type ExecFn interface {
 	Run(ctx context.Context, key string, data map[string]interface{}) (string, error)
-	Result(ctx context.Context, key, result string, timeOpts TimeOptions) error
+	Result(ctx context.Context, key, result string, timeOpts TimeOptions) (string, error)
 }
 
 var defaultSleepFn = func() {
@@ -17,4 +17,3 @@ var defaultSleepFn = func() {
 type EmptyQueueFn func()
 
 type RemoveCallbackFn func(key string) error
-

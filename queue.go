@@ -153,7 +153,7 @@ func (q *Queue) exec(ctx context.Context, fn ExecFn) error {
 	q.m.Store(k, result)
 
 	if fn.Result != nil {
-		err = fn.Result(ctx, k, result, q.timeOpts)
+		_, err = fn.Result(ctx, k, result, q.timeOpts)
 		if err != nil {
 			q.status.Store(k, StatusErrorResult)
 			return err
@@ -235,4 +235,3 @@ func SetTimeOptions(timeoutSeconds time.Duration, checkFrequencySeconds time.Dur
 		}
 	}
 }
-
